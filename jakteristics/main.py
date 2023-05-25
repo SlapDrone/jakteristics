@@ -11,7 +11,7 @@ from .constants import FEATURE_NAMES
 
 def compute_features(
     points: np.ndarray,
-    search_radius: float,
+    search_radius: float | np.ndarray,
     *,
     kdtree: ckdtree.cKDTree = None,
     num_threads: int = -1,
@@ -65,9 +65,10 @@ def compute_features(
             "in a future version of jakteristics."
         )
         feature_names = FEATURE_NAMES
-
+    if isinstance(search_radius, float):
+        search_radius = np.repeat(search_radius, points.shape[0])
     points = np.ascontiguousarray(points)
-
+    search_radius = np.ascontiguousarray(search_radius)
     return jakteristics.extension.compute_features(
         points,
         search_radius,

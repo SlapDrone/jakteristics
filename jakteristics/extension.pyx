@@ -28,7 +28,7 @@ from .constants import FEATURE_NAMES
 @cython.cdivision(True)
 def compute_features(
     double [:, ::1] points,
-    float search_radius,
+    double [:] search_radii,
     *,
     cKDTree kdtree=None,
     int num_threads=-1,
@@ -62,6 +62,9 @@ def compute_features(
     if not points.shape[1] == 3:
         raise ValueError("You must provide an (n x 3) numpy array.")
 
+    if points.shape[0] != search_radii.shape[0]:
+        raise ValueError("Points and search radii must have the same length.")
+
     if num_threads == -1:
         num_threads = multiprocessing.cpu_count()
 
@@ -73,7 +76,7 @@ def compute_features(
             raise ValueError(f"Unknown feature name: {name}")
         features_map[name.encode()] = n
 
-    radius_vector = np.full((num_threads, 3), fill_value=search_radius)
+    radius_vector = np.empty((num_threads, 3))
     neighbor_points = np.zeros([3, max_k_neighbors * num_threads], dtype=np.float64, order="F")
     eigenvectors = np.zeros([3, 3 * num_threads], dtype=np.float64, order="F")
     eigenvalues = np.zeros(3 * num_threads, dtype=np.float64)
@@ -83,7 +86,7 @@ def compute_features(
     try:
         for i in prange(n_points, nogil=True, num_threads=num_threads):
             thread_id = openmp.omp_get_thread_num()
-
+            radius_vector[thread_id, :] = search_radii[i]
             threaded_vvres[thread_id][0].clear()
             query_ball_point(
                 kdtree.cself,
